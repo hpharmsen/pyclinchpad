@@ -1,5 +1,6 @@
 import requests
 from configparser import ConfigParser
+from pathlib import Path
 
 
 class Clinchpad:
@@ -31,17 +32,26 @@ class Clinchpad:
     ########## U S E R S ##########
 
     def users(self):
+        '''
+        Get users data structure like in https://clinchpad.com/api/docs/users
+        '''
         return self.get('users')
 
     ########## P I P E L I N E ##########
 
     def pipelines(self):
-        if self._pipelines:
-            return self._pipelines
-        else:
-            return self.get('pipelines')
+        """
+        Singleton. If the list of pipelines has already been fetched, return it
+        Otherwise, retrieve the pipelines first.
+        """
+        if not self._pipelines:
+            self._pipelines = self.get('pipelines')
+        return self._pipelines
 
     def pipeline(self, pipeline_name):
+        """
+        Find a pipleline by name
+        """
         pipelines = [p for p in self.pipelines() if p['name'] == pipeline_name]
         assert pipelines, f'Pipeline {pipeline_name} does not exist'
         return pipelines[0]
@@ -49,6 +59,12 @@ class Clinchpad:
     ########## L E A D S ##########
 
     def leads(self, pipeline_name, stages=[]):
+        """
+        Get the leads from a given pipeline as in https://clinchpad.com/api/docs/leads
+        :param pipeline_name: string
+        :param stages: list of names of stages (optional)
+        todo: pagination. Currently only one page with max 999 leads is returned.
+        """
         if type(stages) == type('string'):
             stages = [stages]
         pipeline_id = self.pipeline(pipeline_name)['_id']
@@ -57,27 +73,51 @@ class Clinchpad:
             result = [r for r in result if r.get('stage') and r['stage']['name'] in stages]
         return result
 
-    def update_lead(self, lead_id, data):
-        return self.put(f'leads/{lead_id}', data)
+    def update_lead(self, lead, data):
+        """
+        Update a leads fields.
+        e.g. To set the leaads value: update_lead( mylead, {value=20000} )
+        """
+        return self.put(f'leads/{lead["_id"]}', data)
 
     def move_lead(self, lead, pipeline_name, new_stage):
+        """
+        Move a lead to a new stage
+        e.g. To move lead to negociation stage: move_lead( mylead, 'negociation' )
+        """
         stage_id = self.stage_by_name(pipeline_name, new_stage)['_id']
         return self.update_lead(lead['_id'], {'stage_id': stage_id})
 
     ########## F I E L D S ##########
 
     def fields(self, lead):
+        """
+        Get all fields from a lead
+        """
         return self.get(f'leads/{lead["_id"]}/fields')
 
     def delete_field(self, lead, field):
+        """
+        Delete a field in a lead
+        """
         return self.delete(f'leads/{lead["_id"]}/fields/{field["_id"]}')
 
     ########## N O T E S ##########
 
     def notes(self, lead):
+        """
+        Get all notes from a given lead
+        """
         return self.get(f'leads/{lead["_id"]}/notes?size=999')
 
     def find_note_having(self, lead, predicate, keep_only_last=False):
+        """
+        Advanced not finding
+        :param lead: Lead to search in
+        :param predicate: function that gets lead and list of notes and returns note values that comply
+        :param keep_only_last: If multiple notes match the predicate, return the last and delete the rest
+        :return: Whatever the predicates returned. Or None if none matches.
+        """
         all_results = []
         for note in self.notes(lead):
             content = note['content']
@@ -91,28 +131,39 @@ class Clinchpad:
                     return result
         if all_results:
             for note, result in all_results[:-1]:
-                print('Deleting double note', result)
                 self.delete_note(lead, note)
             return all_results[-1][1]
         return None
 
     def add_note(self, lead, new_text):
+        """
+        Add a new note to a given lead
+        """
         return self.post(
             f'leads/{lead["_id"]}/notes',
             {'content': new_text, 'user_id': '5c4db105f986030014662372'},
         )
 
     def update_note(self, lead, note, new_text):
+        """
+        Update an existing note
+        """
         return self.put(f'leads/{lead["_id"]}/notes/{note["_id"]}', {'content': new_text})
 
     def delete_note(self, lead, note):
+        """
+        Delete given note
+        """
         return self.delete(f'leads/{lead["_id"]}/notes/{note["_id"]}')
 
     ########## S T A G E ##########
 
     def stage_by_name(self, pipeline_name, stage_name):
-        pipeline_id = self.pipeline(pipeline_name)['_id']
-        stages = self.get(f'/pipelines/{pipeline_id}/stages')
+        """
+        Find a stage by name
+        """
+        pipeline = self.pipeline(pipeline_name)
+        stages = self.get(f'/pipelines/{pipeline["_id"]}/stages')
         for stage in stages:
             if stage['name'] == stage_name:
                 return stage
