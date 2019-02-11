@@ -29,6 +29,6 @@ You can find your api key in the clinchad settings panel.
 
 Of course. But feel free so send a PR.
 
-### Only Pyton3?
+### Only Python3?
 
 Dude! It's 2019.
