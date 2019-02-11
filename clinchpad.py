@@ -1,6 +1,6 @@
 import requests
 from configparser import ConfigParser
-from pathlib import Path
+from dateutil.parser import parse
 
 
 class Clinchpad:
@@ -72,6 +72,12 @@ class Clinchpad:
         if stages:
             result = [r for r in result if r.get('stage') and r['stage']['name'] in stages]
         return result
+
+    def lead_by_id(self, id):
+        """
+        Returns the lead with the specified id
+        """
+        return self.get(f'leads/{id}')
 
     def update_lead(self, lead, data):
         """
@@ -156,7 +162,7 @@ class Clinchpad:
         """
         return self.delete(f'leads/{lead["_id"]}/notes/{note["_id"]}')
 
-    ########## S T A G E ##########
+    ########## S T A G E S ##########
 
     def stage_by_name(self, pipeline_name, stage_name):
         """
@@ -168,3 +174,41 @@ class Clinchpad:
             if stage['name'] == stage_name:
                 return stage
         assert False, f'Stage {stage_name} not found in pipeline {pipeline_name}'
+
+    ########## A C T I V I T I E S ##########
+
+    def activities(
+        self, pipeline=None, lead=None, activity_types=[], start_date=None, end_date=None
+    ):
+        """
+        Get activities filteres by various parameters
+        :param pipeline: return only activities from this pipeline (optional)
+        :param lead: return only activities from this lead (optional)
+        :param activity_types: return only these activity types. See https://clinchpad.com/api/docs/activities
+        :param start_date: return only activities from this date onwards
+        :param end_date: return only activities before this date
+        :return: list of activities. See https://clinchpad.com/api/docs/activities for the format
+        """
+
+        if lead:
+            path = f'leads/{lead["_id"]}/activities'
+        else:
+            path = '/activities'
+        path += '?size=999'  # todo: implement pagination
+        if activity_types:
+            path += '&filter_type=' + ','.join(activity_types)
+
+        activities = self.get(path)
+
+        if pipeline:
+            activities = [a for a in activities if a['pipeline']['_id'] == pipeline['_id']]
+
+        if start_date:
+            sd = parse(start_date).astimezone()
+            activities = [a for a in activities if parse(a['created_at']) >= sd]
+
+        if end_date:
+            ed = parse(end_date).astimezone()
+            activities = [a for a in activities if parse(a['created_at']) <= ed]
+
+        return activities
