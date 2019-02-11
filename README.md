@@ -1,6 +1,12 @@
 # pyclinchpad
-Python api for Clinchpad CRM
+Python api for Clinchpad CRM.
 
+### About Clinchpad
+Very easy to use online CRM. Free up to 100 leads.
+
+Simpler than a traditional CRM. Better than using spreadsheets.
+
+Get it at https://clinchpad.com
 
 ### Usage:
 
@@ -18,3 +24,11 @@ key = your-api-key-here
 ```
 
 You can find your api key in the clinchad settings panel.
+
+### Missing features?
+
+Of course. But feel free so send a PR.
+
+### Only Pyton3?
+
+Dude! It's 2019.
